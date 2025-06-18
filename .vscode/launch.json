@@ -1,0 +1,31 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "运行Agent系统",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agent/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agent"
+            },
+            "args": []
+        },
+        {
+            "name": "调试Agent系统",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agent/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agent"
+            },
+            "stopOnEntry": false,
+            "justMyCode": false,
+            "args": []
+        }
+    ]
+}

@@ -192,3 +192,20 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# 项目特定的敏感文件
+# 环境配置文件（包含API密钥等敏感信息）
+.env
+
+# 临时文件和日志
+*.tmp
+*.temp
+logs/
+debug.log
+
+# 机器学习模型文件（如果较大）
+models/
+*.pkl
+*.joblib
+*.h5
+*.onnx

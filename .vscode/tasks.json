@@ -1,0 +1,120 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "运行Agent系统",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-u",
+                "${workspaceFolder}/agent/main.py"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}/agent",
+                    "PYTHONUNBUFFERED": "1"
+                }
+            },
+            "problemMatcher": [],
+            "runOptions": {
+                "instanceLimit": 1
+            }
+        },
+        {
+            "label": "运行Agent系统(调试模式)",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-u",
+                "-m", "pdb",
+                "${workspaceFolder}/agent/main.py"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}",
+                "env": {
+                    "PYTHONPATH": "${workspaceFolder}/agent",
+                    "PYTHONUNBUFFERED": "1"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "安装依赖",
+            "type": "shell",
+            "command": "pip",
+            "args": [
+                "install",
+                "-r",
+                "requirements.txt"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "设置环境配置",
+            "type": "shell",
+            "command": "cp",
+            "args": [
+                ".env.example",
+                ".env"
+            ],
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "验证配置",
+            "type": "shell",
+            "command": "python",
+            "args": [
+                "-c",
+                "import sys; sys.path.append('agent'); import config; config.validate_config(); print('✅ 配置验证通过')"
+            ],
+            "group": "test",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}
