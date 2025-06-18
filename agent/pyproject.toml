@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lang_agent"
+version = "0.1.0"
+description = "Language Agent with MCP and Local Tools"
+requires-python = ">=3.8"
+dependencies = [
+    "langchain",
+    "langchain-core",
+    "langchain-openai", 
+    "langgraph",
+    "langchain-mcp-adapters",
+    "langsmith",
+    "pydantic",
+]
+
+[tool.setuptools.packages.find]
+include = ["agent*"]

@@ -1,0 +1,6 @@
+langchain
+langchain-core
+langchain-openai
+langgraph
+langchain-mcp-adapters
+langsmith
