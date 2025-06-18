@@ -5,6 +5,75 @@
 本项目是一个以**教学为主**的AI Agent工程化实现，致力于展示真正的生产级Agent系统是如何解决一些问题的。
 预期整个项目会在1个月内结束。
 
+## 🎬 快速体验
+
+下面是系统的实际运行效果：
+
+```bash
+🚀 启动Agent系统...
+
+📦 正在初始化工具提供器...
+✓ 创建MCP服务提供器: amap
+✓ 加载本地工具: calculator
+✓ 加载本地工具: text_processor
+✓ 加载了 15 个工具来自: MCP-高德地图服务
+✓ 加载了 2 个工具来自: 本地工具
+✅ 工具提供器: 组合提供器(MCP-高德地图服务, 本地工具)
+📊 可用工具数量: 17
+🔧 工具列表: ['maps_direction_bicycling', 'maps_direction_driving', 'maps_direction_transit_integrated', 
+'maps_direction_walking', 'maps_distance', 'maps_geo', 'maps_regeocode', 'maps_ip_location', 
+'maps_schema_personal_map', 'maps_around_search', 'maps_search_detail', 'maps_text_search', 
+'maps_schema_navi', 'maps_schema_take_taxi', 'maps_weather', 'calculator', 'text_processor']
+
+🤖 正在初始化LLM...
+✅ 当前LLM提供器: azure_openai
+✅ Agent创建成功
+```
+
+### 🧪 测试用例展示
+
+**1. 地图工具测试 - 逆地理编码**
+```
+❓ 查询: 这个118.79815,32.01112经纬度对应的地方是哪里
+
+👤 用户: 这个118.79815,32.01112经纬度对应的地方是哪里
+🤖 AI: [正在使用工具...]
+  🔧 调用工具: maps_regeocode
+  📝 参数: {"location":"118.79815,32.01112"}
+🛠️ 工具结果: {"country":"中国","province":"江苏省","city":"南京市","district":"秦淮区"}
+🤖 AI: 这个经纬度（118.79815,32.01112）对应的地方是中国江苏省南京市秦淮区。
+```
+
+**2. 本地计算器工具测试**
+```
+❓ 查询: 计算 (2+3)*4-1 的结果
+
+👤 用户: 计算 (2+3)*4-1 的结果
+🤖 AI: [正在使用工具...]
+  🔧 调用工具: calculator
+  📝 参数: {"expression":"(2+3)*4-1"}
+🛠️ 工具结果: 计算结果: 19
+🤖 AI: 计算结果是 19。
+```
+
+**3. 文本处理工具测试**
+```
+❓ 查询: 统计这段文本的字数：'Hello World! This is a test. My email is test@example.com'
+
+👤 用户: 统计这段文本的字数：'Hello World! This is a test. My email is test@example.com'
+🤖 AI: [正在使用工具...]
+  🔧 调用工具: text_processor
+  📝 参数: {"text":"Hello World! This is a test. My email is test@example.com","operation":"word_count"}
+🛠️ 工具结果: 字数统计: 12 个单词
+🤖 AI: 这段文本的字数是 12 个单词。
+```
+
+从上面的演示可以看到，系统能够：
+- 🎯 **智能工具选择**: 根据用户意图自动选择合适的工具
+- 🔧 **多类型工具集成**: 支持MCP外部服务和本地工具的无缝集成
+- 📊 **清晰的执行过程**: 完整展示工具调用的参数和结果
+- 🚀 **即开即用**: 配置简单，启动快速
+
 ### 为什么创建这个项目？
 
 市面上有很多AI Agent和MCP（Model Context Protocol）的实现，但大多数都以**科普为主**，缺乏真正的**工程化**落地经验。这些示例往往只展示了基础功能，而忽略了生产环境中的核心挑战：
