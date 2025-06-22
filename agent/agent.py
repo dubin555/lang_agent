@@ -38,10 +38,37 @@ def create_agent(llm, tools, use_memory=True):
             prompt=system_message
         )
 
-async def invoke_agent(agent, user_input: str, thread_id: str = "1"):
-    """调用Agent进行对话"""
-    config = {"configurable": {"thread_id": thread_id}}
-    return await agent.ainvoke({"messages": [HumanMessage(content=user_input)]}, config)
+async def invoke_agent(agent, query: str, thread_id: str) -> dict:
+    """非流式调用Agent"""
+    print(f"\n{'='*50}")
+    print(f"🔍 处理查询: {query}")
+    print(f"🆔 会话ID: {thread_id}")
+    print(f"{'='*50}\n")
+    
+    # 构造输入
+    inputs = {
+        "messages": [HumanMessage(content=query)]
+    }
+    
+    # 调用agent并获取完整响应
+    response = await agent.ainvoke(
+        inputs,
+        config={"configurable": {"thread_id": thread_id}}
+    )
+    
+    # 确保返回完整的消息历史
+    if isinstance(response, dict):
+        # 如果response中包含messages，直接返回
+        if "messages" in response:
+            print(f"✅ Agent返回了 {len(response['messages'])} 条消息")
+            return response
+        else:
+            # 如果没有messages，尝试从其他地方获取
+            print("⚠️ Agent响应中没有messages字段")
+            return {"messages": []}
+    else:
+        print(f"⚠️ Agent返回了非字典类型: {type(response)}")
+        return {"messages": []}
 
 async def stream_agent(agent, user_input: str, thread_id: str = "1"):
     """流式调用Agent"""
