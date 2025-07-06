@@ -17,9 +17,10 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, project_root)
 
 # --- 导入Agent核心组件 ---
-from agent.agent import create_agent, stream_agent, invoke_agent
+from agent.agent import create_agent, stream_agent  # 删除 invoke_agent
 from agent.llm_provider import init_llm
 from agent.tool_provider import ToolFactory, CompositeToolProvider
+from agent.memory_strategy import create_memory_strategy  # 已经导入了
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
 
 # --- 全局状态 ---
@@ -55,12 +56,54 @@ async def lifespan(app: FastAPI):
         # 初始化LLM
         llm = init_llm()
         
-        # 创建Agent实例
-        agent = create_agent(llm, await tool_provider.get_tools(), use_memory=True)
+        # 获取所有工具
+        all_tools = await tool_provider.get_tools()
+        
+        # === 添加记忆策略配置 ===
+        # 从环境变量读取记忆策略类型
+        memory_strategy_type = os.getenv("MEMORY_STRATEGY", "adaptive")
+        print(f"📋 配置记忆策略: {memory_strategy_type}")
+        
+        # 根据策略类型创建记忆策略
+        if memory_strategy_type == "sliding_window":
+            memory_strategy = create_memory_strategy(
+                'sliding_window',
+                max_messages=int(os.getenv("MAX_MESSAGES", "20"))
+            )
+        elif memory_strategy_type == "token_limit":
+            memory_strategy = create_memory_strategy(
+                'token_limit',
+                max_tokens=int(os.getenv("MAX_TOKENS", "4096")),
+                strategy=os.getenv("TOKEN_STRATEGY", "last")
+            )
+        elif memory_strategy_type == "summary":
+            memory_strategy = create_memory_strategy(
+                'summary',
+                llm=llm,
+                keep_recent=int(os.getenv("KEEP_RECENT", "6")),
+                summary_max_tokens=int(os.getenv("SUMMARY_MAX_TOKENS", "500"))
+            )
+        else:  # adaptive 作为默认策略
+            memory_strategy = create_memory_strategy(
+                'adaptive',
+                short_conversation_threshold=int(os.getenv("SHORT_THRESHOLD", "15")),
+                long_conversation_max_tokens=int(os.getenv("LONG_MAX_TOKENS", "3000"))
+            )
+        
+        # 创建Agent实例，传入记忆策略
+        agent = create_agent(
+            llm=llm, 
+            tools=all_tools, 
+            use_memory=True,
+            memory_strategy=memory_strategy  # 传入记忆策略
+        )
+        
+        print(f"✅ 使用记忆策略: {memory_strategy.__class__.__name__}")
         
         # 将实例存储在全局状态中
         app_state["agent"] = agent
         app_state["tool_provider"] = tool_provider
+        app_state["memory_strategy"] = memory_strategy  # 也可以存储策略信息
         
         # 预先加载和分类工具信息
         print("🔧 正在加载和分类工具信息...")
@@ -127,8 +170,8 @@ async def lifespan(app: FastAPI):
 class ChatRequest(BaseModel):
     query: str = Field(..., description="用户输入的问题")
     thread_id: Optional[str] = Field(None, description="会话ID，用于多轮对话。如果为空，则会创建一个新的会话。")
-    stream: bool = Field(True, description="是否使用流式响应。默认为True。")
-    debug: bool = Field(False, description="是否开启Debug模式。如果为True，将返回详细的执行过程，且强制非流式。")
+    stream: bool = Field(True, description="是否使用流式响应。现在强制为True。")  # 默认就是True
+    debug: bool = Field(False, description="是否开启Debug模式。如果为True，将返回详细的执行过程。")
 
 class ChatResponse(BaseModel):
     answer: str
@@ -250,10 +293,9 @@ async def get_tools_endpoint():
 @app.post("/chat", summary="标准聊天接口")
 async def chat_endpoint(request: ChatRequest):
     """
-    处理聊天请求，支持流式和非流式响应。
-    - **stream=True (默认)**: 流式返回答案文本。
-    - **stream=False**: 一次性返回最终答案。
-    - **debug=True**: 返回详细的执行步骤，强制非流式。
+    处理聊天请求
+    - **stream=True**: 流式返回答案文本（默认总是True）
+    - **debug=True**: 返回详细的执行步骤（仍然收集完整信息后返回）
     """
     try:
         agent = app_state.get("agent")
@@ -262,37 +304,53 @@ async def chat_endpoint(request: ChatRequest):
 
         thread_id = request.thread_id or f"thread_{uuid.uuid4().hex}"
         
+        # 强制使用流式
+        request.stream = True
+        
         print(f"📝 收到请求: query='{request.query}', stream={request.stream}, debug={request.debug}")
         
         # --- Debug模式 ---
         if request.debug:
-            print("🐛 使用Debug模式")
+            print("🐛 使用Debug模式（内部使用流式收集）")
             try:
-                # 使用invoke_agent获取完整的消息历史
-                response = await invoke_agent(agent, request.query, thread_id)
-                messages = response.get("messages", [])
-                
-                print(f"📊 Debug模式 - 获取到 {len(messages)} 条消息")
-                
-                # 获取最终答案
+                # 收集所有消息用于调试
+                all_messages = []
                 final_answer = ""
-                if messages:
-                    # 从后往前找最后一个包含内容的AIMessage
-                    for msg in reversed(messages):
-                        if isinstance(msg, AIMessage) and msg.content:
-                            final_answer = msg.content
-                            break
                 
-                # 格式化所有消息用于前端显示
-                debug_messages = format_messages_for_debug(messages)
+                async for chunk, metadata in stream_agent(agent, request.query, thread_id):
+                    # 收集AI回复
+                    if isinstance(chunk, AIMessage) and chunk.content:
+                        final_answer += chunk.content
                 
-                # 打印调试信息
-                print(f"🔍 Debug消息类型分布:")
-                message_types = {}
-                for msg in debug_messages:
-                    message_types[msg.type] = message_types.get(msg.type, 0) + 1
-                for msg_type, count in message_types.items():
-                    print(f"   - {msg_type}: {count}")
+                # 获取完整的对话历史
+                state = await agent.aget_state({"configurable": {"thread_id": thread_id}})
+                if state and state.values and "messages" in state.values:
+                    all_messages = state.values["messages"]
+                
+                # 构建调试响应
+                debug_messages = []
+                for msg in all_messages:
+                    debug_msg = {
+                        "type": msg.__class__.__name__,
+                        "content": msg.content if hasattr(msg, 'content') else str(msg)
+                    }
+                    
+                    if hasattr(msg, 'tool_calls') and msg.tool_calls:
+                        debug_msg["tool_calls"] = [
+                            {
+                                "id": tc.get("id", ""),
+                                "function": {
+                                    "name": tc.get("name", ""),
+                                    "arguments": tc.get("args", "{}")
+                                },
+                                "type": tc.get("type", "function")
+                            } for tc in msg.tool_calls
+                        ]
+                    
+                    if hasattr(msg, 'tool_call_id'):
+                        debug_msg["tool_call_id"] = msg.tool_call_id
+                    
+                    debug_messages.append(debug_msg)
                 
                 return DebugResponse(
                     thread_id=thread_id,
@@ -305,40 +363,28 @@ async def chat_endpoint(request: ChatRequest):
                 traceback.print_exc()
                 raise HTTPException(status_code=500, detail=f"Debug mode error: {str(e)}")
 
-        # --- 流式响应 ---
-        if request.stream:
-            print("📡 使用流式响应")
-            async def stream_generator() -> AsyncGenerator[str, None]:
-                try:
-                    async for chunk, _ in stream_agent(agent, request.query, thread_id):
-                        if chunk.content:
-                            yield chunk.content
-                except Exception as e:
-                    print(f"❌ 流式响应错误: {e}")
-                    yield f"错误: {str(e)}"
-            
-            return StreamingResponse(stream_generator(), media_type="text/plain")
+        # --- 流式响应（这是唯一的非Debug响应方式）---
+        print("📡 使用流式响应")
+        async def stream_generator() -> AsyncGenerator[str, None]:
+            try:
+                async for chunk, metadata in stream_agent(agent, request.query, thread_id):
+                    # 只处理AIMessage的内容
+                    if isinstance(chunk, AIMessage) and chunk.content:
+                        yield chunk.content
+                        
+            except Exception as e:
+                print(f"❌ 流式生成错误: {e}")
+                yield f"\n\n[错误] {str(e)}"
+        
+        return StreamingResponse(stream_generator(), media_type="text/plain")
 
-        # --- 非流式响应 ---
-        else:
-            print("📄 使用非流式响应")
-            response = await invoke_agent(agent, request.query, thread_id)
-            final_answer = ""
-            if response and response.get("messages"):
-                for msg in reversed(response["messages"]):
-                    if isinstance(msg, AIMessage) and msg.content:
-                        final_answer = msg.content
-                        break
-            
-            return ChatResponse(answer=final_answer, thread_id=thread_id)
-            
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ 聊天接口错误: {e}")
+        print(f"❌ 处理请求时出错: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- 健康检查接口 ---
 @app.get("/health")

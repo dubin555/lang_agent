@@ -46,25 +46,12 @@ export class ChatAPI {
     }
   }
 
-  static async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-    try {
-      const response = await apiClient.post<ChatResponse>('/chat', {
-        ...request,
-        stream: false,
-      });
-      return response.data;
-    } catch (error) {
-      console.error('发送消息失败:', error);
-      throw new Error('消息发送失败');
-    }
-  }
-
   static async sendMessageDebug(request: ChatRequest): Promise<DebugResponse> {
     try {
       const response = await apiClient.post<DebugResponse>('/chat', {
         ...request,
         debug: true,
-        stream: false,
+        stream: true,  // 改为流式！即使是debug模式
       });
       return response.data;
     } catch (error) {
@@ -87,7 +74,7 @@ export class ChatAPI {
         },
         body: JSON.stringify({
           ...request,
-          stream: true,
+          stream: true,  // 确保是流式
         }),
       });
 

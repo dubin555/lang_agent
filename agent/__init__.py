@@ -13,15 +13,17 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 # 导出主要的类和函数
-from .agent import create_agent, invoke_agent, stream_agent
-from .llm_provider import init_llm, LLMFactory
+from .agent import create_agent, stream_agent
+from .utils import parse_messages
+from .llm_provider import init_llm
 from .tool_provider import ToolFactory
+from . import config
 
 __all__ = [
-    "create_agent",
-    "invoke_agent", 
-    "stream_agent",
-    "init_llm",
-    "LLMFactory",
-    "ToolFactory"
+    'create_agent',
+    'stream_agent',
+    'parse_messages',
+    'init_llm',
+    'ToolFactory',
+    'config'
 ]
