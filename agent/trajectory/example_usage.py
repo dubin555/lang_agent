@@ -4,6 +4,7 @@ import asyncio
 import sys
 import os
 from typing import List, Annotated, TypedDict
+from pathlib import Path
 
 # Add the project root to the Python path to allow absolute imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
@@ -15,6 +16,7 @@ from langgraph.graph.message import add_messages
 from agent.trajectory.langgraph_hook import create_trajectory_node
 from agent.trajectory.react_trajectory_hook import create_trajectory_hook
 from agent.trajectory.trajectory_recorder import create_local_recorder
+from agent.trajectory.trajectory_viewer import TrajectoryViewer
 
 
 # Define the state for the graph correctly.
@@ -50,14 +52,8 @@ async def example_with_node():
 
     # Define the flow, ensuring the trajectory node is called after each step
     workflow.set_entry_point("agent")
-    
-    # After 'agent' node, go to 'trajectory' to record the state
     workflow.add_edge("agent", "trajectory")
-    
-    # After recording, decide where to go next (in this case, to 'tools')
     workflow.add_edge("trajectory", "tools")
-    
-    # After 'tools' node, the graph should end.
     workflow.add_edge("tools", END)
 
     app = workflow.compile()
@@ -71,19 +67,6 @@ async def example_with_node():
     await app.ainvoke(initial_state)
     print(
         "Execution finished. Trajectory recorded to 'trajectories/example_session_node_123.jsonl'"
-    )
-
-    # --- Add a second turn to test trace_id rotation ---
-    print("\n--- Running second turn for Example 1 ---")
-    second_turn_state = {
-        "messages": [
-            HumanMessage(content="Hello again!"),
-        ],
-        "session_id": "example_session_node_123",  # Same session
-    }
-    await app.ainvoke(second_turn_state)
-    print(
-        "Second turn finished. Trajectory updated in 'trajectories/example_session_node_123.jsonl'"
     )
 
 
@@ -121,31 +104,57 @@ async def example_with_hook():
         post_model_hook=trajectory_hook,
     )
 
-    # Run the agent
+    # Run the agent for multiple turns
     config = {"configurable": {"thread_id": "example_session_hook_456"}}
+
+    print("\n--- Turn 1 ---")
     await agent.ainvoke(
         {"messages": [HumanMessage(content="Hello! What is the weather in SF?")]},
         config,
     )
 
-    print(
-        "Execution finished. Trajectory recorded to 'trajectories/example_session_hook_456.jsonl'"
+    print("\n--- Turn 2 ---")
+    await agent.ainvoke(
+        {"messages": [HumanMessage(content="Thanks! What about in LA?")]},
+        config,
     )
 
-    # --- Add a second turn to test trace_id rotation ---
-    print("\n--- Running second turn for Example 2 ---")
-    await agent.ainvoke(
-        {"messages": [HumanMessage(content="What about in London?")]},
-        config,  # Same config, so same thread_id
-    )
     print(
-        "Second turn finished. Trajectory updated in 'trajectories/example_session_hook_456.jsonl'"
+        "\nExecution finished. Trajectory recorded to 'trajectories/example_session_hook_456.jsonl'"
     )
 
 
 async def main():
+    # --- Optional: Clean up old trajectory files for a fresh run ---
+    print("--- Cleaning up old trajectory files ---")
+    for f in Path("trajectories").glob("*.jsonl"):
+        try:
+            f.unlink()
+        except OSError as e:
+            print(f"Error removing file {f}: {e}")
+
+    # --- Run Examples ---
     await example_with_node()
     await example_with_hook()
+
+    # --- Display the generated trajectories ---
+    print("\n" + "="*60)
+    print("🔍 Displaying Generated Trajectories")
+    print("="*60)
+
+    try:
+        viewer = TrajectoryViewer(trajectories_dir="trajectories")
+
+        print("\n--- Trajectory for Example 1 (TrajectoryNode) ---")
+        viewer.display("example_session_node_123")
+
+        print("\n--- Trajectory for Example 2 (ReactTrajectoryHook) ---")
+        viewer.display("example_session_hook_456")
+
+    except FileNotFoundError as e:
+        print(f"\nCould not display trajectories: {e}")
+    except Exception as e:
+        print(f"\nAn unexpected error occurred while displaying trajectories: {e}")
 
 
 if __name__ == "__main__":
