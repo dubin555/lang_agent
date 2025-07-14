@@ -11,6 +11,7 @@ from agent import create_agent, stream_agent
 from langchain_core.messages import AIMessage
 from llm_provider import init_llm, LLMFactory
 from tool_provider import ToolFactory
+from trajectory.trajectory_recorder import create_local_recorder
 from utils import parse_messages
 
 async def main():
@@ -38,7 +39,9 @@ async def main():
         print(f"📋 支持的LLM提供器: {LLMFactory.get_supported_providers()}")
         
         # 创建agent（为测试独立性，禁用记忆功能）
-        agent = create_agent(llm, tools, use_memory=False)
+        trajectory_recorder = create_local_recorder() 
+        agent = create_agent(llm, tools, use_memory=False, use_trajectory=True, trajectory_recorder=trajectory_recorder)
+    
         print("✅ Agent创建成功\n")
 
         # 测试用例
@@ -53,6 +56,7 @@ async def main():
         if tool_provider and hasattr(tool_provider, 'close'):
             await tool_provider.close()
             print("\n🧹 已清理工具提供器资源")
+            
 
 async def run_conversation_test(agent):
     """测试多轮对话，观察记忆策略的效果"""

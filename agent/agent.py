@@ -2,9 +2,16 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage
 from typing import Optional, AsyncGenerator, Tuple, Any
-from .memory_strategy import BaseMemoryStrategy
+from memory_strategy import BaseMemoryStrategy
 
-def create_agent(llm, tools, use_memory=True, memory_strategy: Optional[BaseMemoryStrategy] = None):
+def create_agent(
+    llm, 
+    tools, 
+    use_memory=True, 
+    memory_strategy: Optional[BaseMemoryStrategy] = None,
+    use_trajectory: bool = False,  # 新增参数
+    trajectory_recorder: Optional[Any] = None  # 新增参数
+):
     """创建ReAct Agent
     
     Args:
@@ -12,6 +19,8 @@ def create_agent(llm, tools, use_memory=True, memory_strategy: Optional[BaseMemo
         tools: 工具列表
         use_memory: 是否使用记忆功能，默认True
         memory_strategy: 记忆策略实例，用于控制上下文长度
+        use_trajectory: 是否启用轨迹记录
+        trajectory_recorder: 自定义的轨迹记录器，如果不提供则使用默认的本地记录器
     """
     # 根据可用工具动态生成系统提示
     tool_descriptions = []
@@ -43,11 +52,18 @@ def create_agent(llm, tools, use_memory=True, memory_strategy: Optional[BaseMemo
     # 无论是默认策略还是用户提供的策略，都需要添加 pre_model_hook
     agent_params["pre_model_hook"] = memory_strategy.create_pre_model_hook()
     
+    # 处理轨迹记录
+    if use_trajectory:
+        pass
+
+    
     # 如果启用记忆，添加 checkpointer
     if use_memory:
         agent_params["checkpointer"] = InMemorySaver()
     
+    # 只返回 agent，不返回 trajectory_hook
     return create_react_agent(**agent_params)
+
 
 async def stream_agent(
     agent, 
