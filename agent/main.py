@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage
 from llm_provider import init_llm, LLMFactory
 from tool_provider import ToolFactory
 from trajectory.trajectory_recorder import create_local_recorder
+from trajectory.react_trajectory_hook import create_trajectory_hook
 from utils import parse_messages
 
 async def main():

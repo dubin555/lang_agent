@@ -3,6 +3,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langchain_core.messages import SystemMessage, HumanMessage
 from typing import Optional, AsyncGenerator, Tuple, Any
 from memory_strategy import BaseMemoryStrategy
+from trajectory.trajectory_recorder import create_local_recorder
+from trajectory.react_trajectory_hook import create_trajectory_hook
 
 def create_agent(
     llm, 
@@ -54,7 +56,9 @@ def create_agent(
     
     # 处理轨迹记录
     if use_trajectory:
-        pass
+        trajectory_recorder = trajectory_recorder or create_local_recorder()
+        trajectory_hook = create_trajectory_hook(trajectory_recorder)
+        agent_params["post_model_hook"] = trajectory_hook
 
     
     # 如果启用记忆，添加 checkpointer

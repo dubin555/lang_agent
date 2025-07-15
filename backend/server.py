@@ -21,6 +21,7 @@ from agent.agent import create_agent, stream_agent  # 删除 invoke_agent
 from agent.llm_provider import init_llm
 from agent.tool_provider import ToolFactory, CompositeToolProvider
 from agent.memory_strategy import create_memory_strategy  # 已经导入了
+from agent.trajectory.trajectory_recorder import create_local_recorder # 导入轨迹记录器
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage, SystemMessage
 
 # --- 全局状态 ---
@@ -90,12 +91,23 @@ async def lifespan(app: FastAPI):
                 long_conversation_max_tokens=int(os.getenv("LONG_MAX_TOKENS", "3000"))
             )
         
+                # === 添加轨迹记录配置 ===
+        use_trajectory = os.getenv("USE_TRAJECTORY", "true").lower() == "true"
+        trajectory_recorder = None
+        if use_trajectory:
+            print("🛤️  启用轨迹记录功能")
+            trajectory_recorder = create_local_recorder()
+        else:
+            print("🛤️  禁用轨迹记录功能")
+        
         # 创建Agent实例，传入记忆策略
         agent = create_agent(
             llm=llm, 
             tools=all_tools, 
             use_memory=True,
-            memory_strategy=memory_strategy  # 传入记忆策略
+            memory_strategy=memory_strategy,  # 传入记忆策略
+            use_trajectory=use_trajectory,
+            trajectory_recorder=trajectory_recorder  # 传入轨迹记录器
         )
         
         print(f"✅ 使用记忆策略: {memory_strategy.__class__.__name__}")
